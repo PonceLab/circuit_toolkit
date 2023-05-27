@@ -8,7 +8,9 @@ def GAN_invert(G, target_img, z_init=None, lr=1e-2, weight_decay=0e-4, max_iter=
     if z_init is None:
         z_opt = torch.randn(5, 4096, requires_grad=True, device="cuda")
     else:
-        z_opt = z_init.clone().detach().requires_grad_(True)
+        z_opt = z_init.clone().detach().requires_grad_(True).to("cuda")
+    if target_img.device != "cuda":
+        target_img = target_img.cuda()
     opt = Adam([z_opt], lr=lr, weight_decay=weight_decay)
     pbar = trange(max_iter)
     for i in pbar:
@@ -28,7 +30,9 @@ def GAN_invert_with_scheduler(G, target_img, z_init=None, scheduler=None, lr=1e-
     if z_init is None:
         z_opt = torch.randn(5, 4096, requires_grad=True, device="cuda")
     else:
-        z_opt = z_init.clone().detach().requires_grad_(True)
+        z_opt = z_init.clone().detach().requires_grad_(True).to("cuda")
+    if target_img.device != "cuda":
+        target_img = target_img.cuda()
     opt = Adam([z_opt], lr=lr, weight_decay=weight_decay)
     if scheduler is None:
         scheduler = ExponentialLR(opt, gamma=0.999)

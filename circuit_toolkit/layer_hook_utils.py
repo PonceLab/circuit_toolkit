@@ -6,6 +6,7 @@ from collections import OrderedDict, defaultdict
 
 
 def get_layer_names(model):
+    print("Warning: this function is not tested for all models. Prefer get_module_names() instead.")
     layername = []
     conv_cnt = 0
     fc_cnt = 0

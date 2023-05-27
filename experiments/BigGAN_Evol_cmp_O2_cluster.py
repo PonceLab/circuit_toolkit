@@ -269,45 +269,11 @@ G = load_GAN(args.G)
 Hdata = load_Hessian(args.G)
 #%% Select vision model as scorer
 scorer = TorchScorer(args.net)
-# net = tv.alexnet(pretrained=True)
-# scorer.select_unit(("alexnet", "fc6", 2))
-# imgs = G.visualize(torch.randn(3, 256).cuda()).cpu()
-# scores = scorer.score_tsr(imgs)
 #%% Select the Optimizer
 method_col = args.optim
 # optimizer_col = [label2optimizer(methodlabel, np.random.randn(1, 256), GAN=args.G) for methodlabel in method_col]
 #%% Set recording location and image size and position.
 pos_dict = {"conv5": (7, 7), "conv4": (7, 7), "conv3": (7, 7), "conv2": (14, 14), "conv1": (28, 28)}
-
-# Get the center position of the feature map.
-# if not "fc" in args.layer:
-#     if not args.net in layername_dict:  # TODO:Check the logic
-#         module_names, module_types, module_spec = get_module_names(scorer.model, input_size=(3, 227, 227), device="cuda")
-#         layer_key = [k for k, v in module_names.items() if v == args.layer][0]
-#         feat_outshape = module_spec[layer_key]['outshape']
-#         assert len(feat_outshape) == 3  # fc layer will fail
-#         cent_pos = (feat_outshape[1]//2, feat_outshape[2]//2)
-#     else:
-#         cent_pos = pos_dict[args.layer]
-# else:
-#     cent_pos = None
-#
-# print("Target setting network %s layer %s, center pos"%(args.net, args.layer), cent_pos)
-# # rf Mapping,
-# if args.RFresize and not "fc" in args.layer:
-#     print("Computing RF by direct backprop: ")
-#     gradAmpmap = grad_RF_estimate(scorer.model, args.layer, (slice(None), *cent_pos), input_size=(3, 227, 227),
-#                                   device="cuda", show=False, reps=30, batch=1)
-#     Xlim, Ylim = gradmap2RF_square(gradAmpmap, absthresh=1E-8, relthresh=0.01, square=True)
-#     corner = (Xlim[0], Ylim[0])
-#     imgsize = (Xlim[1] - Xlim[0], Ylim[1] - Ylim[0])
-# else:
-#     imgsize = (256, 256)
-#     corner = (0, 0)
-#     Xlim = (corner[0], corner[0] + imgsize[0])
-#     Ylim = (corner[1], corner[1] + imgsize[1])
-#
-# print("Xlim %s Ylim %s \n imgsize %s corner %s" % (Xlim, Ylim, imgsize, corner))
 input_size = (3, 227, 227)
 cent_pos, corner, imgsize, Xlim, Ylim = get_center_pos_and_rf(scorer.model, args.layer,
                                           input_size=input_size, device="cuda")

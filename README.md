@@ -15,11 +15,14 @@ pip install -e .
 pip install -r requirements.txt
 ```
 ## Demo Usage
+Try out this self-contained demo in colab:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1cbCaOt3xFFnQhB2bbIkf-C_Buf1wFVpL?usp=sharing)
+
 
 ### Recording from individual units
 
 
-### Use a unit to drive Evolution
+### Run Evolution
 Here is the basic version of the Evolution using FC6 GAN and alexnet as scorer. 
 ```python
 import torch
@@ -48,3 +51,5 @@ for i in range(steps):
 
 
 ### Invert images into GAN space and exploration 
+
+
