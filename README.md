@@ -98,6 +98,24 @@ for i in range(steps):
             i, scores.mean(), scores.std(), latent_code.norm(dim=1).mean(),))
 ```
 
+More high level function `Evol_experiment_FC6` is also available.
+```python
+import numpy as np
+from circuit_toolkit.CNN_scorers import TorchScorer
+from circuit_toolkit.Optimizers import CholeskyCMAES
+from circuit_toolkit.GAN_utils import upconvGAN
+from circuit_toolkit.Evol_utils import Evol_experiment_FC6
+
+scorer = TorchScorer("alexnet", imgpix=224)
+h = scorer.set_unit("score", ".features.ReLU11", (10,6,6), ingraph=False)
+G = upconvGAN("fc6").cuda().eval()
+new_codes = np.random.randn(1, 4096)
+optimizer = CholeskyCMAES(space_dimen=4096, init_code=new_codes, init_sigma=3.0,)
+
+codes_all, scores_all, generations, best_imgs, \
+ final_imgs = Evol_experiment_FC6(scorer, optimizer, G, steps=100, init_code=new_codes)
+```
+
 ### Manifold exploration experiments
 
 ```python
