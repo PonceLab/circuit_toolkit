@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="dissection_toolkit",
+    name="circuit_toolkit",
     version="0.0",
     author='Your Name',
     author_email='binxu_wang@hms.harvard.edu',
@@ -18,7 +18,7 @@ setup(
         'Programming Language :: Python :: 3.9',
     ],
     install_requires=[
-        'dependency1',
-        'dependency2',
+        # 'dependency1',
+        # 'dependency2',
     ],
 )
