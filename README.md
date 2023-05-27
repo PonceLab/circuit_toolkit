@@ -100,6 +100,29 @@ for i in range(steps):
 
 ### Manifold exploration experiments
 
+```python
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+from circuit_toolkit.GAN_utils import upconvGAN
+from circuit_toolkit.CNN_scorers import TorchScorer
+from circuit_toolkit.plot_utils import to_imgrid
+from circuit_toolkit.GAN_manifold_utils import generate_sphere_grid_coords 
+scorer = TorchScorer("alexnet", imgpix=224)
+h = scorer.set_unit("score", ".features.ReLU11", (10, 6, 6), ingraph=False)
+G = upconvGAN("fc6").cuda().eval()
+
+vec_cnt = 3 * torch.randn(1, 4096).float()
+codes = generate_sphere_grid_coords(vec_cnt, vec2=None, vec3=None,
+                    n_az=9, n_el=9, az_lim=(-np.pi/2, np.pi/2),
+                          el_lim=(-np.pi/2, np.pi/2))
+manif_imgs = G.visualize_batch(codes, B=40)
+to_imgrid(manif_imgs,nrow=9)
+
+manif_scores = scorer.score_tsr(manif_imgs)
+plt.imshow(manif_scores.reshape(9,9))
+plt.show()
+```
 
 ### Invert images into GAN space and exploration 
 ```python
