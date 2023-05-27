@@ -11,12 +11,12 @@ import torch.nn.functional as F
 from torchvision.transforms import ToPILImage, ToTensor
 from torchvision.utils import make_grid
 from pytorch_pretrained_biggan import (BigGAN, truncated_noise_sample, one_hot_from_names, save_as_images)
-from core.utils.CNN_scorers import TorchScorer
-from core.utils.GAN_utils import BigGAN_wrapper, upconvGAN, loadBigGAN
-from core.utils.grad_RF_estim import grad_RF_estimate, gradmap2RF_square
-from core.utils.layer_hook_utils import get_module_names, layername_dict, register_hook_by_module_names
-from core.utils.Optimizers import CholeskyCMAES, HessCMAES, ZOHA_Sphere_lr_euclid
-from core.utils.plot_utils import saveallforms, save_imgrid
+from circuit_toolkit.utils.CNN_scorers import TorchScorer
+from circuit_toolkit.utils.GAN_utils import BigGAN_wrapper, upconvGAN, loadBigGAN
+from circuit_toolkit.grad_RF_estim import grad_RF_estimate, gradmap2RF_square
+from circuit_toolkit.utils.layer_hook_utils import get_module_names, layername_dict, register_hook_by_module_names
+from circuit_toolkit.utils.Optimizers import CholeskyCMAES, HessCMAES, ZOHA_Sphere_lr_euclid
+from circuit_toolkit.utils.plot_utils import saveallforms, save_imgrid
 #%%
 if sys.platform == "linux":
     # rootdir = r"/scratch/binxu/BigGAN_Optim_Tune_new"
@@ -339,7 +339,7 @@ for unit_id in range(args.chans[0], args.chans[1]):
         optimizer_col = [label2optimizer(methodlabel, init_code, args.G) for methodlabel in method_col]
         for methodlab, optimizer in zip(method_col, optimizer_col):
             if args.G == "fc6":  methodlab += "_fc6"  # add space notation as suffix to optimizer
-            # core evolution code
+            # circuit_toolkit evolution code
             new_codes = init_code
             # new_codes = init_code + np.random.randn(25, 256) * 0.06
             scores_all = []

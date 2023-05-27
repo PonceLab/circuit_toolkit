@@ -3,7 +3,7 @@ import numpy as np
 from numpy import sqrt, zeros, floor, log, log2, eye, exp, linspace, logspace, log10, mean, std
 from numpy.linalg import norm
 from numpy.random import randn
-from core.utils.geometry_utils import ExpMap, renormalize, ang_dist, SLERP
+from circuit_toolkit.geometry_utils import ExpMap, renormalize, ang_dist, SLERP
 
 
 class CholeskyCMAES:

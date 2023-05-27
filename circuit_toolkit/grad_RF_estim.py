@@ -8,8 +8,8 @@ import matplotlib.pylab as plt
 import scipy.optimize as opt
 from os.path import join
 from easydict import EasyDict
-from core.utils.CNN_scorers import get_activation, activation
-from core.utils.layer_hook_utils import register_hook_by_module_names, get_module_names
+from circuit_toolkit.CNN_scorers import get_activation, activation
+from circuit_toolkit.layer_hook_utils import register_hook_by_module_names, get_module_names
 import torch.nn.functional as F
 
 def grad_RF_estimate(model, target_layer, target_unit, input_size=(3,227,227),

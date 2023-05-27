@@ -1,11 +1,11 @@
+from glob import glob
+from os.path import join
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import ToTensor, ToPILImage, \
     Normalize, Compose, Resize, CenterCrop
 from imageio import imread, imsave
-from glob import glob
-from os.path import join
 from torch.utils.data import Subset, SubsetRandomSampler
 
 class ImagePathDataset(Dataset):
