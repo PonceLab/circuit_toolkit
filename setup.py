@@ -8,7 +8,7 @@ setup(
     description='A short description of your project',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    url='https://github.com/PonceLab/dissection_toolkit',
+    url='https://github.com/PonceLab/circuit_toolkit',
     packages=find_packages(),
     classifiers=[
         'License :: OSI Approved :: MIT License',
