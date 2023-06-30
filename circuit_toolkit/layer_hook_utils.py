@@ -417,7 +417,7 @@ def register_hook_by_module_names(target_name, target_hook, model, input_size=(3
     hooks = []
 
     # register hook recursively at any module in the hierarchy
-    named_apply(model, "", register_hook)
+    recursive_named_apply(model, "", register_hook)
 
     # make a forward pass
     model(x)
