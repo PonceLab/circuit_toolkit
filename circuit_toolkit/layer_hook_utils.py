@@ -226,7 +226,7 @@ def recursive_named_apply_w_depth(model, name, func, prefix=None, depth=0, deepe
 
 
 def get_module_name_shapes(model, inputs_list, hook_root_module=None, hook_root_prefix="",
-                           deepest=3, show=True, show_input=True):
+                           deepest=3, show=True, show_input=True, return_df=False):
     """Get the module names and shapes of the model.
     Args:
         model: the model to inspect
@@ -236,10 +236,13 @@ def get_module_name_shapes(model, inputs_list, hook_root_module=None, hook_root_
         deepest: the depth to inspect the model, start from the `hook_root_module`. Default 3
         show: whether to print the result. Default True
         show_input: whether to print the input shape. Default True
+        return_df: whether to return the result as a pandas.DataFrame. Default False
     Returns:
-        module_names: a dict of module names
-        module_types: a dict of module types
-        module_spec: a dict of module input and output shapes
+        if return_df is True, return a pandas.DataFrame
+        else, return a tuple of
+            module_names: a dict of module names
+            module_types: a dict of module types
+            module_spec: a dict of module input and output shapes
 
     Example:
         get_module_name_shapes(pipe.unet, [torch.randn(1,4,96,96).cuda().half(),
@@ -365,7 +368,14 @@ def get_module_name_shapes(model, inputs_list, hook_root_module=None, hook_root_
                 module_names[layer],
                 )
             print(line_new)
-    return module_names, module_types, module_spec
+    if return_df:
+        module_df = pd.concat([
+            pd.DataFrame(module_names, index=["module_names"]).T,
+            pd.DataFrame(module_types, index=["module_types"]).T,
+            pd.DataFrame(module_spec, ).T, ], axis=1)
+        return module_df
+    else:
+        return module_names, module_types, module_spec
 
 
 def register_hook_by_module_names(target_name, target_hook, model, input_size=(3, 256, 256), device="cpu", ):
