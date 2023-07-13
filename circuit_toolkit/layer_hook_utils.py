@@ -297,13 +297,17 @@ def get_module_name_shapes(model, inputs_list, hook_root_module=None, hook_root_
                           .append(tuple(out.shape))
             else:
                 module_spec[str(module_idx)]["outshape"] = (None,)
-        if (
-                True
-                # not isinstance(module, nn.Sequential)
-                # and not isinstance(module, nn.ModuleList)
-                # and not (module == model)
-        ):
+        # if (
+        #         True
+        #         # not isinstance(module, nn.Sequential)
+        #         # and not isinstance(module, nn.ModuleList)
+        #         # and not (module == model)
+        # ):
+        if show_input:
             hooks.append(module.register_forward_hook(hook, with_kwargs=True))
+        else:
+            hooks.append(module.register_forward_hook(
+                lambda module, args, output: hook(module, args, {}, output)))
 
     # create properties
     # receptive_field = OrderedDict()
