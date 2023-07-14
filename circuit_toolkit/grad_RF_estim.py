@@ -165,6 +165,57 @@ def grad_population_RF_estimate(model, target_layer, target_layer_weights, input
     return gradAmpmap.numpy()
 
 
+def grad_RF_estimate_torch_naming(model, target_layer, target_unit, input_size=(3,227,227),
+                     device="cuda", show=True, reps=200, batch=1):
+    from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
+    # train_nodes, eval_nodes = get_graph_node_names(model)
+    # if target_layer not in eval_nodes and target_layer not in train_nodes:
+    #     print(f"target_layer {target_layer} is not in the model")
+    #     print(f"train_nodes: {train_nodes}")
+    #     print(f"eval_nodes: {eval_nodes}")
+    #     raise ValueError(f"target_layer {target_layer} is not in the model")
+    model_feat = create_feature_extractor(model, return_nodes=[target_layer])
+    model_feat.cuda()
+    cnt = 0
+    # graddata = torch.zeros((1, 3, 227, 227)).cuda()
+    gradabsdata = torch.zeros(input_size).cuda()
+    for i in range(reps):
+        # TODO: check the mean & std after normalization is proper
+        intsr = torch.rand((batch, *input_size), device="cuda") * 2 - 1
+        intsr.requires_grad_(True)
+        out = model_feat(intsr)
+        act_vec = out[target_layer][(slice(None), *target_unit)]
+        if act_vec.numel() > 1:
+            act = act_vec.mean()
+        else:
+            act = act_vec
+        if not torch.isclose(act, torch.tensor(0.0)):
+            act.backward()
+            # graddata += intsr.grad
+            gradabsdata += intsr.grad.abs().mean(dim=0)
+            cnt += 1
+        else:
+            continue
+    if cnt == 0:
+        raise ValueError("Unit Not activated by random noise")
+    gradAmpmap = gradabsdata.permute([1, 2, 0]).abs().mean(dim=2).cpu() / cnt
+    if show:
+        plt.figure(figsize=[6, 6.5])
+        plt.imshow(gradAmpmap, interpolation='none')
+        plt.gca().invert_yaxis()
+        plt.axis("image")
+        plt.title("L %s Unit %s"%(target_layer, target_unit))
+        plt.show()
+        plt.figure(figsize=[6, 6.5])
+        gradAmpmap = torch.nan_to_num(gradAmpmap, nan=0.0, posinf=0.0, neginf=0.0)
+        plt.hist(np.log10(1E-15 + gradAmpmap.flatten().cpu().numpy()), bins=100)
+        plt.xlabel("log10(gradAmp) histogram")
+        plt.title("L %s Unit %s"%(target_layer, target_unit))
+        plt.show()
+    del intsr, act_vec
+    return gradAmpmap.numpy()
+
+
 def gradmap2RF_square(gradAmpmap, absthresh=None, relthresh=0.01, square=True):
     maxAct = gradAmpmap.max()
     relthr = maxAct * relthresh
@@ -273,8 +324,9 @@ def fit_2dgauss(gradAmpmap_, pop_str, outdir="", plot=True):
         plt.title(f"{pop_str}\n"
                   f"Ampl {amplitude:.1e} Cent ({xo:.1f}, {yo:.1f}) std: ({sigma_x:.1f}, {sigma_y:.1f})\n Theta: {theta:.2f}, Offset: {offset:.1e}", fontsize=14)
         plt.tight_layout()
-        plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit.png"))
-        plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit.pdf"))
+        if outdir is not None:
+            plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit.png"))
+            plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit.pdf"))
         plt.show()
 
         figh, axs = plt.subplots(1,2,figsize=[9.8, 6])
@@ -285,8 +337,9 @@ def fit_2dgauss(gradAmpmap_, pop_str, outdir="", plot=True):
         plt.suptitle(f"{pop_str}\n"
                   f"Ampl {amplitude:.1e} Cent ({xo:.1f}, {yo:.1f}) std: ({sigma_x:.1f}, {sigma_y:.1f})\n Theta: {theta:.2f}, Offset: {offset:.1e}", fontsize=14)
         plt.tight_layout()
-        plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit_cmp.png"))
-        plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit_cmp.pdf"))
+        if outdir is not None:
+            plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit_cmp.png"))
+            plt.savefig(join(outdir, f"{pop_str}_gradAmpMap_GaussianFit_cmp.pdf"))
         plt.show()
     return fitdict
 
