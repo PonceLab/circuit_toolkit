@@ -13,7 +13,6 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import matplotlib
 import socket
-import timm
 from circuit_toolkit.layer_hook_utils import layername_dict, register_hook_by_module_names
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
@@ -170,12 +169,18 @@ class TorchScorer:
                 self.model = Cnet.module
                 self.inputsize = (3, imgpix, imgpix)
                 self.layername = None
-            elif model_name in timm.list_models():
-                self.model = timm.create_model(model_name, pretrained=True)
-                self.inputsize = (3, imgpix, imgpix)
-                self.layername = None
             else:
-                raise NotImplementedError("Cannot find the specified model %s"%model_name)
+                try:
+                    import timm
+                    if model_name in timm.list_models():
+                        self.model = timm.create_model(model_name, pretrained=True)
+                        self.inputsize = (3, imgpix, imgpix)
+                        self.layername = None
+                    else:
+                        raise NotImplementedError("Cannot find the specified model %s"%model_name)
+                except ImportError:
+                    print("timm not found and / or model_name not found in timm list of models.")
+
         else:
             raise NotImplementedError("model_name need to be either string or nn.Module")
 
