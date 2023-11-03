@@ -18,12 +18,17 @@ if platform == "linux":  # CHPC cluster
     import socket
     hostname = socket.gethostname()
     if hostname == "odin":
-        torchhome = torch.hub.get_dir()
+        pass
+        # torchhome = torch.hub.get_dir()
     elif "ris.wustl.edu" in hostname:
         homedir = os.path.expanduser('~')
         netsdir = os.path.join(homedir, 'Generate_DB/nets')
     load_urls = True
     # ckpt_path = {"vgg16": "/scratch/binxu/torch/vgg16-397923af.pth"}
+elif platform == 'darwin':
+    pass
+    # torchhome = torch.hub.get_dir() # need checking
+    # Add more paths?
 else:
     if os.environ['COMPUTERNAME'] == 'DESKTOP-9DDE2RH':  # PonceLab-Desktop 3
         homedir = "D:/Generator_DB_Windows"
