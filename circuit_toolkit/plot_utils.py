@@ -4,7 +4,7 @@ import torch
 from os.path import join
 from torchvision.transforms import ToPILImage
 from torchvision.utils import make_grid
-from circuit_toolkit.montage_utils import make_grid_T
+from circuit_toolkit.montage_utils import make_grid_T, make_grid_np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import circuit_toolkit.colormap_matlab
@@ -91,4 +91,21 @@ def showimg(ax, imgarr, cbar=False, ylabel=None):
 def off_axes(axs):
     for ax in axs:
         ax.axis("off")
+
+
+def show_image_without_frame(img):
+    """matplotlib imshow an image without any frame.
+    credit to ChatGPT4"""
+    # Hide the axes and frame
+    fig, ax = plt.subplots()
+    ax.axis('off')
+    # Show the image
+    ax.imshow(img, aspect='auto')
+    # Remove padding and margins from the figure and axes.
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+    # Make the figure fit exactly the image size
+    dpi = fig.get_dpi()
+    fig.set_size_inches(img.shape[1] / dpi, img.shape[0] / dpi)
+    # Show the plot window
+    plt.show()
 
