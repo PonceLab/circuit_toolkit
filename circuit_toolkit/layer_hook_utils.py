@@ -227,7 +227,7 @@ def recursive_named_apply_w_depth(model, name, func, prefix=None, depth=0, deepe
 
 
 def get_module_name_shapes(model, inputs_list, hook_root_module=None, hook_root_prefix="",
-                           deepest=3, show=True, show_input=True, return_df=False):
+                           deepest=3, show=True, show_input=True, return_df=False, model_kwargs={}):
     """Get the module names and shapes of the model.
     Args:
         model: the model to inspect
@@ -331,7 +331,7 @@ def get_module_name_shapes(model, inputs_list, hook_root_module=None, hook_root_
 
     # make a forward pass
     try:
-      model(*inputs_list)
+      model(*inputs_list, **model_kwargs)
     except Exception as e:
       print(e)
       for h in hooks:
