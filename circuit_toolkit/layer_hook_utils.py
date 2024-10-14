@@ -588,10 +588,13 @@ class featureFetcher_module:
         self.hooks = {}
         self.store_device = store_device
 
-    def record_module(self, target_module, target_name, return_input=False, ingraph=False, store_device=None):
+    def record_module(self, target_module, target_name, return_input=False, ingraph=False, store_device=None, record_raw=False):
         if store_device is None:
             store_device = self.store_device
-        hook_fun = self.get_activation(target_name, ingraph=ingraph, return_input=return_input, store_device=store_device)
+        if record_raw:
+            hook_fun = self.get_activation_raw(target_name, return_input=return_input, )
+        else:
+            hook_fun = self.get_activation(target_name, ingraph=ingraph, return_input=return_input, store_device=store_device)
         hook_h = target_module.register_forward_hook(hook_fun)
         # hook_h, _, _ = register_hook_by_module_names(target_name, hook_fun, self.model, device=self.device)
         self.hooks[target_name] = hook_h  # Note this is a list of hooks
@@ -626,6 +629,22 @@ class featureFetcher_module:
         else:
             def hook(model, input, output):
                 self.activations[name] = output.to(store_device) if ingraph else output.detach().to(store_device)
+        # else:
+        #     def hook(model, input, output):
+        #         if len(output.shape) == 4:
+        #             self.activations[name] = output.detach()[:, unit[0], unit[1], unit[2]]
+        #         elif len(output.shape) == 2:
+        #             self.activations[name] = output.detach()[:, unit[0]]
+        return hook
+    
+    def get_activation_raw(self, name, return_input=False, ):
+        """ This hook is designed for cases where return structure is complex e.g. GPT2Block, could post-process later """
+        if return_input:
+            def hook(model, input, output):
+                self.activations[name] = input
+        else:
+            def hook(model, input, output):
+                self.activations[name] = output
         # else:
         #     def hook(model, input, output):
         #         if len(output.shape) == 4:
