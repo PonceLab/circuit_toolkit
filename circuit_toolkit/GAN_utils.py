@@ -47,11 +47,6 @@ else:
         homedir = os.path.expanduser('~')
         netsdir = os.path.join(homedir, 'Documents/nets')
 
-# model_urls = {"pool5" : "https://onedrive.live.com/download?cid=9CFFF6BCB39F6829&resid=9CFFF6BCB39F6829%2145337&authkey=AFaUAgeoIg0WtmA",
-#     "fc6": "https://onedrive.live.com/download?cid=9CFFF6BCB39F6829&resid=9CFFF6BCB39F6829%2145339&authkey=AC2rQMt7Obr0Ba4",
-#     "fc7": "https://onedrive.live.com/download?cid=9CFFF6BCB39F6829&resid=9CFFF6BCB39F6829%2145338&authkey=AJ0R-daUAVYjQIw",
-#     "fc8": "https://onedrive.live.com/download?cid=9CFFF6BCB39F6829&resid=9CFFF6BCB39F6829%2145340&authkey=AKIfNk7s5MGrRkU"}
-
 model_urls = {
     "caffenet": "https://huggingface.co/binxu/DeePSim_DosovitskiyBrox2016/resolve/main/caffenet.pt",
     "norm1": "https://huggingface.co/binxu/DeePSim_DosovitskiyBrox2016/resolve/main/upconvGAN_norm1.pt",
@@ -96,7 +91,7 @@ def load_statedict_from_online(name="fc6"):
 
     SD = torch.load(filepath)
     return SD
-    
+
 
 class View(nn.Module):
     def __init__(self, *shape):
@@ -105,6 +100,15 @@ class View(nn.Module):
 
     def forward(self, x):
         return x.view(*self.shape)
+
+
+class ScalarMultiply(nn.Module):
+    def __init__(self, scalar):
+        super(View, self).__init__()
+        self.scalar = scalar
+
+    def forward(self, x):
+        return self.scalar * x
 
 
 RGB_mean = torch.tensor([123.0, 117.0, 104.0])
@@ -226,6 +230,7 @@ class upconvGAN(nn.Module):
                 ('relu_deconv1', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
                 ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
                 ('tanh', nn.Tanh())
+                ("scaling", ScalarMultiply(255.0))
             ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (384, 13, 13)
@@ -257,6 +262,7 @@ class upconvGAN(nn.Module):
                 ('relu_deconv1', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
                 ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
                 ('tanh', nn.Tanh())
+                ("scaling", ScalarMultiply(255.0))
             ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (384, 13, 13)
@@ -283,6 +289,7 @@ class upconvGAN(nn.Module):
                 ('deconv1', nn.ConvTranspose2d(32, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))),
                 ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
                 ('tanh', nn.Tanh())
+                ("scaling", ScalarMultiply(255.0))
             ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (256, 13, 13)
@@ -309,6 +316,7 @@ class upconvGAN(nn.Module):
                     ('deconv1', nn.ConvTranspose2d(32, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))),
                     ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
                     ('tanh', nn.Tanh())
+                    ("scaling", ScalarMultiply(255.0))
                 ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (96, 27, 27)
@@ -424,6 +432,7 @@ class Caffenet(nn.Module):
             self.net.load_state_dict(SDnew)
     
     def forward(self, x):
+        # TODO: add proper preprocessing of Caffe
         return self.net(x)
 
 
@@ -490,6 +499,7 @@ class BigGAN_wrapper(): #nn.Module
             imgs = self.visualize(code_batch, scale, truncation=truncation)
             img_all = imgs if img_all is None else torch.cat((img_all, imgs), dim=0)
         return img_all
+
 
     def visualize_batch_np(self, codes_all_arr, truncation=0.7, B=15, ):
         csr = 0
