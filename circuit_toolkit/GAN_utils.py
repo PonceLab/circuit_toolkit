@@ -104,7 +104,7 @@ class View(nn.Module):
 
 class ScalarMultiply(nn.Module):
     def __init__(self, scalar):
-        super(View, self).__init__()
+        super(ScalarMultiply, self).__init__()
         self.scalar = scalar
 
     def forward(self, x):
@@ -229,8 +229,8 @@ class upconvGAN(nn.Module):
                 ('deconv1', nn.ConvTranspose2d(32, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))),
                 ('relu_deconv1', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
                 ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
-                ('tanh', nn.Tanh())
-                ("scaling", ScalarMultiply(255.0))
+                ('tanh', nn.Tanh()),
+                ("scaling", ScalarMultiply(255.0)),
             ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (384, 13, 13)
@@ -261,8 +261,8 @@ class upconvGAN(nn.Module):
                 ('deconv1', nn.ConvTranspose2d(32, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))),
                 ('relu_deconv1', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
                 ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
-                ('tanh', nn.Tanh())
-                ("scaling", ScalarMultiply(255.0))
+                ('tanh', nn.Tanh()),
+                ("scaling", ScalarMultiply(255.0)),
             ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (384, 13, 13)
@@ -288,8 +288,8 @@ class upconvGAN(nn.Module):
                 ('relu_conv2_1', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
                 ('deconv1', nn.ConvTranspose2d(32, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))),
                 ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
-                ('tanh', nn.Tanh())
-                ("scaling", ScalarMultiply(255.0))
+                ('tanh', nn.Tanh()),
+                ("scaling", ScalarMultiply(255.0)),
             ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (256, 13, 13)
@@ -315,8 +315,8 @@ class upconvGAN(nn.Module):
                     ('relu_conv2_1', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
                     ('deconv1', nn.ConvTranspose2d(32, 16, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))),
                     ('conv1_1', nn.Conv2d(16, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
-                    ('tanh', nn.Tanh())
-                    ("scaling", ScalarMultiply(255.0))
+                    ('tanh', nn.Tanh()),
+                    ("scaling", ScalarMultiply(255.0)),
                 ]))
             self.codelen = self.G[0].in_channels
             self.latent_shape = (96, 27, 27)
