@@ -113,7 +113,7 @@ class upconvGAN(nn.Module):
     def __init__(self, name="fc6", pretrained=True):
         super(upconvGAN, self).__init__()
         self.name = name
-        if name == "fc6" or name == "fc7":
+        if name == "fc6" or name == "fc7" or name == "fc6_eucl":
             self.G = nn.Sequential(OrderedDict([
         ('defc7', nn.Linear(in_features=4096, out_features=4096, bias=True)),
         ('relu_defc7', nn.LeakyReLU(negative_slope=0.3, inplace=True)),
