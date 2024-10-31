@@ -13,39 +13,6 @@ from collections import OrderedDict
 import os
 from os.path import join
 from sys import platform
-load_urls = False
-if platform == "linux":  # CHPC cluster
-    import socket
-    hostname = socket.gethostname()
-    if hostname == "odin":
-        pass
-        # torchhome = torch.hub.get_dir()
-    elif "ris.wustl.edu" in hostname:
-        homedir = os.path.expanduser('~')
-        netsdir = os.path.join(homedir, 'Generate_DB/nets')
-    load_urls = True
-    # ckpt_path = {"vgg16": "/scratch/binxu/torch/vgg16-397923af.pth"}
-elif platform == 'darwin':
-    pass
-    # torchhome = torch.hub.get_dir() # need checking
-    # Add more paths?
-else:
-    if os.environ['COMPUTERNAME'] == 'DESKTOP-9DDE2RH':  # PonceLab-Desktop 3
-        homedir = "D:/Generator_DB_Windows"
-        netsdir = os.path.join(homedir, 'nets')
-    elif os.environ['COMPUTERNAME'] == 'PONCELAB-ML2C':  # PonceLab-Desktop Victoria
-        homedir = r"C:\Users\ponce\Documents\Generator_DB_Windows"
-        netsdir = os.path.join(homedir, 'nets')
-    elif os.environ['COMPUTERNAME'] == 'DESKTOP-MENSD6S':  # Home_WorkStation
-        homedir = "E:/Monkey_Data/Generator_DB_Windows"
-        netsdir = os.path.join(homedir, 'nets')
-    elif os.environ['COMPUTERNAME'] == 'DESKTOP-9LH02U9':  # Home_WorkStation Victoria
-        homedir = "C:/Users/zhanq/OneDrive - Washington University in St. Louis/Generator_DB_Windows"
-        netsdir = os.path.join(homedir, 'nets')
-    else:
-        load_urls = True
-        homedir = os.path.expanduser('~')
-        netsdir = os.path.join(homedir, 'Documents/nets')
 
 model_urls = {
     "caffenet": "https://huggingface.co/binxu/DeePSim_DosovitskiyBrox2016/resolve/main/caffenet.pt",
@@ -322,18 +289,7 @@ class upconvGAN(nn.Module):
             self.latent_shape = (96, 27, 27)
         # load pre-trained weight from online or local folders
         if pretrained:
-            if load_urls:
-                SD = load_statedict_from_online(name)
-            else:
-                savepath = {"fc6": join(netsdir, r"upconv/fc6/generator_state_dict.pt"),
-                            "fc7": join(netsdir, r"upconv/fc7/generator_state_dict.pt"),
-                            "fc8": join(netsdir, r"upconv/fc8/generator_state_dict.pt"),
-                            "pool5": join(netsdir, r"upconv/pool5/generator_state_dict.pt"),
-                            "conv4": join(netsdir, r"upconv/conv4/generator_state_dict.pt"),
-                            "conv3": join(netsdir, r"upconv/conv3/generator_state_dict.pt"),
-                            "norm2": join(netsdir, r"upconv/norm2/generator_state_dict.pt"),
-                            "norm1": join(netsdir, r"upconv/norm1/generator_state_dict.pt")}
-                SD = torch.load(savepath[name])
+            SD = load_statedict_from_online(name)
             SDnew = OrderedDict()
             for name, W in SD.items():  # discard this inconsistency
                 name = name.replace(".1.", ".")
@@ -421,18 +377,18 @@ class Caffenet(nn.Module):
                 ('fc8', nn.Linear(4096, 1000))
             ]))
         if pretrained:
-            if load_urls:
-                SD = load_statedict_from_online("caffenet")
-            else:
-                SD = torch.load(join(netsdir, r"upconv/caffenet/caffenet_state_dict.pt"))
+            SD = load_statedict_from_online("caffenet")
             SDnew = OrderedDict()
             for name, W in SD.items():  # discard this inconsistency
                 name = name.replace(".1.", ".")
                 SDnew[name] = W
             self.net.load_state_dict(SDnew)
     
-    def forward(self, x):
-        # TODO: add proper preprocessing of Caffe
+    def forward(self, x, preproc=False, scale=1.0):
+        if preproc:
+            x = x.float() / scale * 255.0
+            x = x - RGB_mean.to(x.device)
+            x = x[:, [2, 1, 0], :, :]
         return self.net(x)
 
 
