@@ -6,6 +6,7 @@ from torchvision.datasets import ImageFolder
 from torchvision.transforms import ToTensor, ToPILImage, \
     Normalize, Compose, Resize, CenterCrop
 from imageio import imread, imsave
+from PIL import Image
 from torch.utils.data import Subset, SubsetRandomSampler
 
 class ImagePathDataset(Dataset):
@@ -34,13 +35,14 @@ class ImagePathDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.imgfps[idx]
-        img = imread(img_path)
-        if len(img.shape) == 2:
-            img = img[:, :, None]
-        if img.shape[2] == 4:
-            img = img[:, :, :3]
-        elif img.shape[2] == 1:
-            img = img.repeat(3, axis=2)
+        img = Image.open(img_path).convert("RGB")
+        # img = imread(img_path)
+        # if len(img.shape) == 2:
+        #     img = img[:, :, None]
+        # if img.shape[2] == 4:
+        #     img = img[:, :, :3]
+        # elif img.shape[2] == 1:
+        #     img = img.repeat(3, axis=2)
         imgtsr = self.transform(img)
         score = self.scores[idx]
         return imgtsr, score
