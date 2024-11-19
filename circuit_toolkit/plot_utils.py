@@ -2,6 +2,7 @@ import os.path
 import numpy as np
 import torch
 from os.path import join
+from PIL import Image
 from torchvision.transforms import ToPILImage
 from torchvision.utils import make_grid
 from circuit_toolkit.montage_utils import make_grid_T, make_grid_np
@@ -109,3 +110,54 @@ def show_image_without_frame(img):
     # Show the plot window
     plt.show()
 
+
+def create_image_grid(image_paths, grid_size, image_size=None, padding=0, bg_color=(255, 255, 255)):
+    """
+    Assembles multiple images into a grid and saves the result.
+
+    Parameters:
+    - image_paths: List of file paths to the images.
+    - grid_size: Tuple (columns, rows) specifying the grid dimensions.
+    - output_path: File path to save the resulting grid image.
+    - image_size: Tuple (width, height) specifying the size to which each image should be resized. If None, original sizes are used.
+    - padding: Integer specifying the number of pixels between images.
+    - bg_color: Tuple specifying the RGB color for the background.
+    """
+    if isinstance(image_paths, str):
+        image_paths = [image_paths]
+    elif isinstance(image_paths, list):
+        if isinstance(image_paths[0], str):
+            images = [Image.open(path) for path in image_paths]
+        else:
+            images = image_paths
+    else:
+        raise ValueError("image_paths must be a list of file paths or a single file path")
+
+    # Resize images if image_size is specified
+    if image_size:
+        images = [img.resize(image_size, Image.Resampling.LANCZOS) for img in images]
+        image_width, image_height = image_size
+    else:
+        # Use the size of the first image
+        image_width, image_height = images[0].size
+
+    grid_columns, grid_rows = grid_size
+
+    # Calculate grid dimensions including padding
+    grid_width = grid_columns * image_width + (grid_columns - 1) * padding
+    grid_height = grid_rows * image_height + (grid_rows - 1) * padding
+
+    # Create a new blank image with the specified background color
+    grid_image = Image.new('RGB', (grid_width, grid_height), color=bg_color)
+
+    # Paste images into the grid
+    for index, image in enumerate(images):
+        row = index // grid_columns
+        col = index % grid_columns
+        x_offset = col * (image_width + padding)
+        y_offset = row * (image_height + padding)
+        grid_image.paste(image, (x_offset, y_offset))
+    return grid_image
+    # Save the resulting grid image
+    grid_image.save(output_path)
+    print(f"Image grid saved to {output_path}")
