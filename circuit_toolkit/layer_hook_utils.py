@@ -467,6 +467,7 @@ class featureFetcher:
         self.module_names = module_names
         self.module_types = module_types
         self.module_spec = module_spec
+        self.default_input_size = input_size
         self.activations = {}
         self.hooks = {}
         self.device = device
@@ -476,7 +477,7 @@ class featureFetcher:
         if store_device is None:
             store_device = self.store_device
         hook_fun = self.get_activation(target_name, ingraph=ingraph, return_input=return_input, store_device=store_device)
-        hook_h, _, _ = register_hook_by_module_names(target_name, hook_fun, self.model, device=self.device)
+        hook_h, _, _ = register_hook_by_module_names(target_name, hook_fun, self.model, device=self.device, input_size=self.default_input_size)
         self.hooks[target_name] = hook_h  # Note this is a list of hooks
         return hook_h
 

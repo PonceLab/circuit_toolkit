@@ -497,8 +497,7 @@ def resize_and_pad_tsr(img_tsr, size, offset, canvas_size=(227, 227), scale=1.0)
     imgn = img_tsr.shape[0]
 
     padded_shape = (imgn, 3,) + canvas_size
-    pad_img = torch.ones(padded_shape) * 0.5 * scale
-    pad_img.to(img_tsr.dtype)
+    pad_img = torch.ones(padded_shape, dtype=img_tsr.dtype, device=img_tsr.device) * 0.5 * scale
     rsz_tsr = F.interpolate(img_tsr, size=size)
     pad_img[:, :, offset[0]:offset[0] + size[0], offset[1]:offset[1] + size[1]] = rsz_tsr
     return pad_img
