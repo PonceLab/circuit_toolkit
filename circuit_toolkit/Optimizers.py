@@ -1,10 +1,11 @@
 import time
+import math
 import numpy as np
 from numpy import sqrt, zeros, floor, log, log2, eye, exp, linspace, logspace, log10, mean, std
 from numpy.linalg import norm
 from numpy.random import randn
 from circuit_toolkit.geometry_utils import ExpMap, renormalize, ang_dist, SLERP
-
+import torch
 
 class CholeskyCMAES:
     """ Note this is a variant of CMAES Cholesky suitable for high dimensional optimization"""
@@ -105,7 +106,8 @@ class CholeskyCMAES:
             # Adapt step size sigma
             self.sigma = self.sigma * exp((self.cs / self.damps) * (norm(self.ps) / self.chiN - 1))
             # self.sigma = self.sigma * exp((self.cs / self.damps) * (norm(ps) / self.chiN - 1))
-            if verbosity: print("sigma: %.2f" % self.sigma)
+            if verbosity: 
+                print("sigma: %.2f" % self.sigma)
             # Update A and Ainv with search path
             if self.counteval - self.eigeneval > self.update_crit:  # to achieve O(N ^ 2) do decomposition less frequently
                 self.eigeneval = self.counteval
@@ -118,7 +120,8 @@ class CholeskyCMAES:
                 self.Ainv = 1 / sqrt(1 - self.c1) * self.Ainv - 1 / sqrt(1 - self.c1) / normv * (
                             1 - 1 / sqrt(1 + normv * self.c1 / (1 - self.c1))) * self.Ainv @ v.T @ v
                 t2 = time.time()
-                print("A, Ainv update! Time cost: %.2f s" % (t2 - t1))
+                if verbosity: 
+                    print("A, Ainv update! Time cost: %.2f s" % (t2 - t1))
         # Generate new sample by sampling from Gaussian distribution
         # new_samples = zeros((self.lambda_, N))
         self.randz = randn(self.lambda_, N)  # save the random number for generating the code.
@@ -145,6 +148,282 @@ def rankweight(lambda_, mu=None):
     mu_int = int(floor(mu))
     weights[:mu_int] = log(mu + 1 / 2) - (log(np.arange(1, 1 + floor(mu))))  # muXone array for weighted recombination
     weights = weights / sum(weights)
+    return weights
+
+
+class CholeskyCMAES_torch:
+    """Note this is a variant of CMAES Cholesky suitable for high-dimensional optimization."""
+
+    def __init__(self, space_dimen, population_size=None, init_sigma=3.0, init_code=None, Aupdate_freq=10,
+                 maximize=True, random_seed=None, optim_params={}, device='cpu'):
+        N = space_dimen
+        self.space_dimen = space_dimen
+        self.device = torch.device(device)
+        # Overall control parameter
+        self.maximize = maximize  # if the program is to maximize or to minimize
+
+        # Strategy parameter setting: Selection
+        if population_size is None:
+            self.lambda_ = int(4 + math.floor(3 * math.log2(N)))  # population size, offspring number
+        else:
+            self.lambda_ = population_size  # use custom specified population size
+
+        mu = self.lambda_ / 2  # number of parents/points for recombination
+        self.mu = int(math.floor(mu))
+
+        # Compute weights for recombination
+        weights = torch.log(torch.tensor(mu + 0.5, device=self.device)) - \
+                  torch.log(torch.arange(1, self.mu + 1, device=self.device, dtype=torch.float32))
+        self.weights = weights / torch.sum(weights)  # normalize recombination weights array
+        self.weights = self.weights.reshape(1, -1)  # Add the 1st dim 1 to the weights matrix
+
+        mueff = self.weights.sum() ** 2 / torch.sum(self.weights ** 2)
+        self.mueff = mueff.item()
+
+        self.sigma = init_sigma
+        print("Space dimension: %d, Population size: %d, Select size:%d, Optimization Parameters:\nInitial sigma: %.3f"
+              % (self.space_dimen, self.lambda_, self.mu, self.sigma))
+
+        # Strategy parameter setting: Adaptation
+        self.cc = 4 / (N + 4)
+        self.cs = math.sqrt(self.mueff) / (math.sqrt(self.mueff) + math.sqrt(N))
+        self.c1 = 2 / (N + math.sqrt(2)) ** 2
+
+        # Overwrite parameters if provided
+        self.cc = optim_params.get("cc", self.cc)
+        self.cs = optim_params.get("cs", self.cs)
+        self.c1 = optim_params.get("c1", self.c1)
+
+        self.damps = 1 + self.cs + 2 * max(0, math.sqrt((self.mueff - 1) / (N + 1)) - 1)
+        print("cc=%.3f, cs=%.3f, c1=%.3f, damps=%.3f" % (self.cc, self.cs, self.c1, self.damps))
+
+        if init_code is not None:
+            self.init_x = torch.tensor(init_code, device=self.device, dtype=torch.float32).reshape(1, N)
+        else:
+            self.init_x = None
+
+        self.xmean = torch.zeros((1, N), device=self.device)
+        self.xold = torch.zeros((1, N), device=self.device)
+        self.pc = torch.zeros((1, N), device=self.device)
+        self.ps = torch.zeros((1, N), device=self.device)
+        self.A = torch.eye(N, device=self.device)
+        self.Ainv = torch.eye(N, device=self.device)
+
+        self.eigeneval = 0
+        self.counteval = 0
+        if Aupdate_freq is None:
+            self.update_crit = self.lambda_ / self.c1 / N / 10
+        else:
+            self.update_crit = Aupdate_freq * self.lambda_
+
+        self.chiN = math.sqrt(N) * (1 - 1 / (4 * N) + 1 / (21 * N ** 2))
+        self._istep = 0
+
+    def get_init_pop(self):
+        return self.init_x
+
+    def step_simple(self, scores, codes, verbosity=1):
+        """Taking scores and codes to return new codes, without generating images."""
+        N = self.space_dimen
+
+        # Ensure scores and codes are tensors on the correct device
+        if not isinstance(scores, torch.Tensor):
+            scores = torch.tensor(scores, device=self.device, dtype=torch.float32)
+        if not isinstance(codes, torch.Tensor):
+            codes = torch.tensor(codes, device=self.device, dtype=torch.float32)
+
+        # Sort by fitness and compute weighted mean into xmean
+        if self.maximize:
+            code_sort_index = torch.argsort(-scores)
+        else:
+            code_sort_index = torch.argsort(scores)
+
+        if self._istep == 0:
+            # Population Initialization
+            if self.init_x is None:
+                select_n = len(code_sort_index[:self.mu])
+                temp_weight = self.weights[:, :select_n] / torch.sum(self.weights[:, :select_n])
+                self.xmean = temp_weight @ codes[code_sort_index[:self.mu], :]
+            else:
+                self.xmean = self.init_x
+        else:
+            self.xold = self.xmean.clone()
+            self.xmean = self.weights @ codes[code_sort_index[:self.mu], :]
+
+            # Update evolution paths
+            randzw = self.weights @ self.randz[code_sort_index[:self.mu], :]
+            self.ps = (1 - self.cs) * self.ps + math.sqrt(self.cs * (2 - self.cs) * self.mueff) * randzw
+            self.pc = (1 - self.cc) * self.pc + math.sqrt(self.cc * (2 - self.cc) * self.mueff) * (randzw @ self.A)
+
+            # Adapt step size sigma
+            self.sigma = self.sigma * math.exp((self.cs / self.damps) * (torch.norm(self.ps) / self.chiN - 1))
+            if verbosity:
+                print("sigma: %.2f" % self.sigma)
+
+            # Update A and Ainv with search path
+            if self.counteval - self.eigeneval > self.update_crit:
+                self.eigeneval = self.counteval
+                t1 = time.time()
+                v = self.pc @ self.Ainv
+                normv = (v @ v.T).item()
+                sqrt_term = math.sqrt(1 + normv * self.c1 / (1 - self.c1))
+                self.A = math.sqrt(1 - self.c1) * self.A + \
+                         (math.sqrt(1 - self.c1) / normv) * (sqrt_term - 1) * v.T @ self.pc
+                self.Ainv = (1 / math.sqrt(1 - self.c1)) * self.Ainv - \
+                            (1 / (math.sqrt(1 - self.c1) * normv)) * (1 - 1 / sqrt_term) * (self.Ainv @ v.T @ v)
+                t2 = time.time()
+                if verbosity:
+                    print("A, Ainv update! Time cost: %.2f s" % (t2 - t1))
+
+        # Generate new samples
+        self.randz = torch.randn(self.lambda_, N, device=self.device)
+        new_samples = self.xmean + self.sigma * (self.randz @ self.A)
+        self.counteval += self.lambda_
+        self._istep += 1
+        return new_samples
+
+
+class CholeskyCMAES_torch_noCMA:
+    """Note this is a variant of CMAES Cholesky suitable for high-dimensional optimization."""
+
+    def __init__(self, space_dimen, population_size=None, init_sigma=3.0, init_code=None, Aupdate_freq=10,
+                 maximize=True, random_seed=None, optim_params={}, device='cpu'):
+        N = space_dimen
+        self.space_dimen = space_dimen
+        self.device = torch.device(device)
+        # Overall control parameter
+        self.maximize = maximize  # if the program is to maximize or to minimize
+
+        # Strategy parameter setting: Selection
+        if population_size is None:
+            self.lambda_ = int(4 + math.floor(3 * math.log2(N)))  # population size, offspring number
+        else:
+            self.lambda_ = population_size  # use custom specified population size
+
+        mu = self.lambda_ / 2  # number of parents/points for recombination
+        self.mu = int(math.floor(mu))
+
+        # Compute weights for recombination
+        weights = torch.log(torch.tensor(mu + 0.5, device=self.device)) - \
+                  torch.log(torch.arange(1, self.mu + 1, device=self.device, dtype=torch.float32))
+        self.weights = weights / torch.sum(weights)  # normalize recombination weights array
+        self.weights = self.weights.reshape(1, -1)  # Add the 1st dim 1 to the weights matrix
+
+        mueff = self.weights.sum() ** 2 / torch.sum(self.weights ** 2)
+        self.mueff = mueff.item()
+
+        self.sigma = init_sigma
+        print("Space dimension: %d, Population size: %d, Select size:%d, Optimization Parameters:\nInitial sigma: %.3f"
+              % (self.space_dimen, self.lambda_, self.mu, self.sigma))
+
+        # Strategy parameter setting: Adaptation
+        self.cc = 4 / (N + 4)
+        self.cs = math.sqrt(self.mueff) / (math.sqrt(self.mueff) + math.sqrt(N))
+        self.c1 = 2 / (N + math.sqrt(2)) ** 2
+
+        # Overwrite parameters if provided
+        self.cc = optim_params.get("cc", self.cc)
+        self.cs = optim_params.get("cs", self.cs)
+        self.c1 = optim_params.get("c1", self.c1)
+
+        self.damps = 1 + self.cs + 2 * max(0, math.sqrt((self.mueff - 1) / (N + 1)) - 1)
+        print("cc=%.3f, cs=%.3f, c1=%.3f, damps=%.3f" % (self.cc, self.cs, self.c1, self.damps))
+
+        if init_code is not None:
+            self.init_x = torch.tensor(init_code, device=self.device, dtype=torch.float32).reshape(1, N)
+        else:
+            self.init_x = None
+
+        self.xmean = torch.zeros((1, N), device=self.device)
+        self.xold = torch.zeros((1, N), device=self.device)
+        self.pc = torch.zeros((1, N), device=self.device)
+        self.ps = torch.zeros((1, N), device=self.device)
+        # self.A = torch.eye(N, device=self.device)
+        # self.Ainv = torch.eye(N, device=self.device)
+
+        self.eigeneval = 0
+        self.counteval = 0
+        if Aupdate_freq is None:
+            self.update_crit = self.lambda_ / self.c1 / N / 10
+        else:
+            self.update_crit = Aupdate_freq * self.lambda_
+
+        self.chiN = math.sqrt(N) * (1 - 1 / (4 * N) + 1 / (21 * N ** 2))
+        self._istep = 0
+
+    def get_init_pop(self):
+        return self.init_x
+
+    def step_simple(self, scores, codes, verbosity=1):
+        """Taking scores and codes to return new codes, without generating images."""
+        N = self.space_dimen
+
+        # Ensure scores and codes are tensors on the correct device
+        if not isinstance(scores, torch.Tensor):
+            scores = torch.tensor(scores, device=self.device, dtype=torch.float32)
+        if not isinstance(codes, torch.Tensor):
+            codes = torch.tensor(codes, device=self.device, dtype=torch.float32)
+
+        # Sort by fitness and compute weighted mean into xmean
+        if self.maximize:
+            code_sort_index = torch.argsort(-scores)
+        else:
+            code_sort_index = torch.argsort(scores)
+
+        if self._istep == 0:
+            # Population Initialization
+            if self.init_x is None:
+                select_n = len(code_sort_index[:self.mu])
+                temp_weight = self.weights[:, :select_n] / torch.sum(self.weights[:, :select_n])
+                self.xmean = temp_weight @ codes[code_sort_index[:self.mu], :]
+            else:
+                self.xmean = self.init_x
+        else:
+            self.xold = self.xmean.clone()
+            self.xmean = self.weights @ codes[code_sort_index[:self.mu], :]
+
+            # Update evolution paths
+            randzw = self.weights @ self.randz[code_sort_index[:self.mu], :]
+            self.ps = (1 - self.cs) * self.ps + math.sqrt(self.cs * (2 - self.cs) * self.mueff) * randzw
+            self.pc = (1 - self.cc) * self.pc + math.sqrt(self.cc * (2 - self.cc) * self.mueff) * (randzw) #  @ self.A
+
+            # Adapt step size sigma
+            self.sigma = self.sigma * math.exp((self.cs / self.damps) * (torch.norm(self.ps) / self.chiN - 1))
+            if verbosity:
+                print("sigma: %.2f" % self.sigma)
+
+            # # Update A and Ainv with search path
+            # if self.counteval - self.eigeneval > self.update_crit:
+            #     self.eigeneval = self.counteval
+            #     t1 = time.time()
+            #     v = self.pc @ self.Ainv
+            #     normv = (v @ v.T).item()
+            #     sqrt_term = math.sqrt(1 + normv * self.c1 / (1 - self.c1))
+            #     self.A = math.sqrt(1 - self.c1) * self.A + \
+            #              (math.sqrt(1 - self.c1) / normv) * (sqrt_term - 1) * v.T @ self.pc
+            #     self.Ainv = (1 / math.sqrt(1 - self.c1)) * self.Ainv - \
+            #                 (1 / (math.sqrt(1 - self.c1) * normv)) * (1 - 1 / sqrt_term) * (self.Ainv @ v.T @ v)
+            #     t2 = time.time()
+            #     if verbosity:
+            #         print("A, Ainv update! Time cost: %.2f s" % (t2 - t1))
+
+        # Generate new samples
+        self.randz = torch.randn(self.lambda_, N, device=self.device)
+        new_samples = self.xmean + self.sigma * (self.randz) # @ self.A
+        self.counteval += self.lambda_
+        self._istep += 1
+        return new_samples
+
+
+def rankweight_torch(lambda_, mu=None, device='cpu'):
+    """Rank weight inspired by CMA-ES code."""
+    if mu is None:
+        mu = lambda_ / 2  # number of parents/points for recombination
+    weights = torch.zeros(int(lambda_), device=device)
+    mu_int = int(math.floor(mu))
+    weights[:mu_int] = torch.log(torch.tensor(mu + 0.5, device=device)) - \
+                       torch.log(torch.arange(1, mu_int + 1, device=device, dtype=torch.float32))
+    weights = weights / weights.sum()
     return weights
 
 
