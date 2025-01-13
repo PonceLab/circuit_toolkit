@@ -434,6 +434,9 @@ def loadBigGAN(version="biggan-deep-256"):
 class BigGAN_wrapper(): #nn.Module
     def __init__(self, BigGAN, ):
         self.BigGAN = BigGAN
+        self.codelen = 256
+        self.latent_shape = (256, )
+
 
     def sample_vector(self, sampn=1, class_id=None, device="cuda", noise_std=0.7):
         if class_id is None:
