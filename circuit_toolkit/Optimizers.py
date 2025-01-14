@@ -155,10 +155,11 @@ class CholeskyCMAES_torch:
     """Note this is a variant of CMAES Cholesky suitable for high-dimensional optimization."""
 
     def __init__(self, space_dimen, population_size=None, init_sigma=3.0, init_code=None, Aupdate_freq=10,
-                 maximize=True, random_seed=None, optim_params={}, device='cpu'):
+                 maximize=True, random_seed=None, optim_params={}, device='cpu', dtype=torch.float32):
         N = space_dimen
         self.space_dimen = space_dimen
         self.device = torch.device(device)
+        self.dtype = dtype
         # Overall control parameter
         self.maximize = maximize  # if the program is to maximize or to minimize
 
@@ -173,7 +174,7 @@ class CholeskyCMAES_torch:
 
         # Compute weights for recombination
         weights = torch.log(torch.tensor(mu + 0.5, device=self.device)) - \
-                  torch.log(torch.arange(1, self.mu + 1, device=self.device, dtype=torch.float32))
+                  torch.log(torch.arange(1, self.mu + 1, device=self.device, dtype=self.dtype))
         self.weights = weights / torch.sum(weights)  # normalize recombination weights array
         self.weights = self.weights.reshape(1, -1)  # Add the 1st dim 1 to the weights matrix
 
@@ -198,16 +199,16 @@ class CholeskyCMAES_torch:
         print("cc=%.3f, cs=%.3f, c1=%.3f, damps=%.3f" % (self.cc, self.cs, self.c1, self.damps))
 
         if init_code is not None:
-            self.init_x = torch.tensor(init_code, device=self.device, dtype=torch.float32).reshape(1, N)
+            self.init_x = torch.tensor(init_code, device=self.device, dtype=self.dtype).reshape(1, N)
         else:
             self.init_x = None
 
-        self.xmean = torch.zeros((1, N), device=self.device)
-        self.xold = torch.zeros((1, N), device=self.device)
-        self.pc = torch.zeros((1, N), device=self.device)
-        self.ps = torch.zeros((1, N), device=self.device)
-        self.A = torch.eye(N, device=self.device)
-        self.Ainv = torch.eye(N, device=self.device)
+        self.xmean = torch.zeros((1, N), device=self.device, dtype=self.dtype)
+        self.xold = torch.zeros((1, N), device=self.device, dtype=self.dtype)
+        self.pc = torch.zeros((1, N), device=self.device, dtype=self.dtype)
+        self.ps = torch.zeros((1, N), device=self.device, dtype=self.dtype)
+        self.A = torch.eye(N, device=self.device, dtype=self.dtype)
+        self.Ainv = torch.eye(N, device=self.device, dtype=self.dtype)
 
         self.eigeneval = 0
         self.counteval = 0
@@ -228,9 +229,9 @@ class CholeskyCMAES_torch:
 
         # Ensure scores and codes are tensors on the correct device
         if not isinstance(scores, torch.Tensor):
-            scores = torch.tensor(scores, device=self.device, dtype=torch.float32)
+            scores = torch.tensor(scores, device=self.device, dtype=self.dtype)
         if not isinstance(codes, torch.Tensor):
-            codes = torch.tensor(codes, device=self.device, dtype=torch.float32)
+            codes = torch.tensor(codes, device=self.device, dtype=self.dtype)
 
         # Sort by fitness and compute weighted mean into xmean
         if self.maximize:
@@ -276,7 +277,7 @@ class CholeskyCMAES_torch:
                     print("A, Ainv update! Time cost: %.2f s" % (t2 - t1))
 
         # Generate new samples
-        self.randz = torch.randn(self.lambda_, N, device=self.device)
+        self.randz = torch.randn(self.lambda_, N, device=self.device, dtype=self.dtype)
         new_samples = self.xmean + self.sigma * (self.randz @ self.A)
         self.counteval += self.lambda_
         self._istep += 1
