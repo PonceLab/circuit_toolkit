@@ -296,8 +296,8 @@ class upconvGAN(nn.Module):
                 SDnew[name] = W
             self.G.load_state_dict(SDnew)
 
-    def sample_vector(self, sampn=1, device="cuda", noise_std=1.0):
-        return torch.randn(sampn, self.codelen, device=device) * noise_std
+    def sample_vector(self, sampn=1, device="cuda", noise_std=1.0, seed=None):
+        return torch.randn(sampn, self.codelen, device=device, generator=torch.Generator(device=device).manual_seed(seed)) * noise_std
 
     def forward(self, x):
         return self.G(x)[:, [2, 1, 0], :, :]
@@ -434,13 +434,15 @@ def loadBigGAN(version="biggan-deep-256"):
 class BigGAN_wrapper(): #nn.Module
     def __init__(self, BigGAN, ):
         self.BigGAN = BigGAN
+        self.codelen = 256
+        self.latent_shape = (256, )
 
-    def sample_vector(self, sampn=1, class_id=None, device="cuda", noise_std=0.7):
+    def sample_vector(self, sampn=1, class_id=None, device="cuda", noise_std=0.7, seed=None):
         if class_id is None:
-            refvec = torch.cat((noise_std * torch.randn(128, sampn).to(device),
+            refvec = torch.cat((noise_std * torch.randn(128, sampn, device=device, generator=torch.Generator(device=device).manual_seed(seed)),
                                 self.BigGAN.embeddings.weight[:, torch.randint(1000, size=(sampn,))].to(device),)).T
         else:
-            refvec = torch.cat((noise_std * torch.randn(128, sampn).to(device),
+            refvec = torch.cat((noise_std * torch.randn(128, sampn, device=device, generator=torch.Generator(device=device).manual_seed(seed)),
                                 self.BigGAN.embeddings.weight[:, (class_id*torch.ones(sampn)).long()].to(device),)).T
         return refvec
 
